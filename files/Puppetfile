@@ -1,0 +1,2 @@
+mod "puppet-riak",
+  :git => "https://github.com/m4ce/puppet-riak.git"

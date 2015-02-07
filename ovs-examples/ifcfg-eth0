@@ -1,0 +1,6 @@
+BOOTPROTO="none"
+NAME="eth0"
+TYPE="OVSPort"
+DEVICETYPE="ovs"
+OVS_BRIDGE="ovsbr0"
+ONBOOT="yes"

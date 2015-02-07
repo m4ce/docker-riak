@@ -1,0 +1,7 @@
+DEVICE="ovsbr0"
+ONBOOT="yes"
+DEVICETYPE="ovs"
+TYPE="OVSBridge"
+BOOTPROTO="static"
+IPADDR="172.17.42.1"
+NETMASK="255.255.0.0"

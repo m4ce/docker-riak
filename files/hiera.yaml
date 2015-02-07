@@ -1,0 +1,10 @@
+---
+:backends:
+  - yaml
+:yaml:
+  :datadir: /etc/puppet
+:hierarchy:
+  - modules/%{module_name}/hiera/%{::clientcert}
+  - modules/%{module_name}/hiera/common
+  - hiera/%{::clientcert}
+  - hiera/common

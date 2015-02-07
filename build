@@ -1,0 +1,3 @@
+#!/bin/bash
+
+docker build -t "m4ce/docker-riak" .
