@@ -10,12 +10,39 @@ function showhelp() {
   echo "Usage: `basename $0` <opts>"
   echo
   echo "Options:"
-  echo " --docker-host <host>         Docker host (default: $docker_host)"
-  echo " --riak-certs-dir <path>      Riak SSL certs directory (default: $riak_certs_dir)"
-  echo " --riak-https-port <N>        Riak HTTPS port (default: $riak_https_port)"
-  echo " --riak-cluster-size <N>      Riak cluster size (default: $riak_cluster_size)"
-  echo " --ovs-bridge <bridge_name>   OVS bridge"
+  echo " --docker-host <host>              Docker host (default: $docker_host)"
+  echo " --riak-certs-dir <path>           Riak SSL certs directory (default: $riak_certs_dir)"
+  echo " --riak-https-port <N>             Riak HTTPS port (default: $riak_https_port)"
+  echo " --riak-cluster-size <N>           Riak cluster size (default: $riak_cluster_size)"
+  echo " --docker-network <a.b.c.d/x>      Docker network"
+  echo " --ovs-bridge <bridge_name>        OVS bridge"
   exit 1
+}
+
+function setup_firewall() {
+  iptables -F
+  iptables -X
+  
+  iptables -N DOCKER
+  # expose Riak port
+  iptables -A DOCKER -p tcp -s 0.0.0.0/0 -d $docker_network --dport $riak_https_port -j ACCEPT
+  # drop everything else
+  iptables -A DOCKER -j DROP
+  
+  # all internal traffic on OUTPUT chain is linked to DOCKER chain
+  iptables -A OUTPUT -o $ovs_bridge -j DOCKER
+  
+  # all internal traffic on FORWARD chain is linked to DOCKER chain
+  iptables -A FORWARD -i $ovs_bridge -o $ovs_bridge -j DOCKER
+  
+  # existing connections keep being forwarded
+  iptables -A FORWARD -o $ovs_bridge -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+  
+  # outgoing connections from all containers are kept being forwarded
+  iptables -A FORWARD -i $ovs_bridge ! -o $ovs_bridge -j ACCEPT
+  
+  # default drop
+  iptables -P FORWARD DROP
 }
 
 riak_cluster_size=1
@@ -51,6 +78,11 @@ do
       shift 2
       ;;
 
+    --docker-network)
+      docker_network=$2
+      shift 2
+      ;;
+
     --ovs-bridge)
       ovs_bridge=$2
       shift 2
@@ -70,7 +102,13 @@ do
   esac
 done
 
+test -z "$docker_network" && showhelp "Must specify the docker network (e.g. 10.0.100.0/24)"
+test -z "$riak_https_port" && showhelp "Must specify the Riak HTTPS port (e.g. 8097)"
+test -z "$ovs_bridge" && showhelp "Must specify the OVS bridge (e.g. ovsbr0)"
+
 ovs-vsctl list-br | egrep "$ovs_bridge" &>/dev/null || showhelp "Failed to find OVS Bridge $ovs_bridge"
+
+setup_firewall
 
 if [[ "$docker_host" =~ ^unix:// ]]; then
   real_docker_host="localhost"
